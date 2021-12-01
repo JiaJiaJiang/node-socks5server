@@ -1,0 +1,24 @@
+{
+	"name": "socks5server",
+	"version": "4.0.2",
+	"description": "A simple SOCKS 5/4/4a implementation and demo proxy",
+	"author": "luojia <luojia@luojia.me>",
+	"repository": {
+		"type": "git",
+		"url": "git@github.com:JiaJiaJiang/node-socks5server.git"
+	},
+	"license": "MIT",
+	"keywords": [
+		"socks",
+		"socks5",
+		"socks4",
+		"socks4a",
+		"proxy",
+		"http"
+	],
+	"main": "index.js",
+	"dependencies": {
+		"commander": "^8.3.0",
+		"ip-address": "^8.1.0"
+	}
+}
