@@ -502,7 +502,7 @@ class UDPRelay extends Relay{
 
 		let relaySocket=this.relaySocket=dgram.createSocket('udp'+ipFamily);//create a relay socket to targets
 		relaySocket.bind(()=>{
-			CMD_REPLY(SOCKS_REPLY.SUCCEEDED,ipFamily===4?'0.0.0.0':"::",this.boundPort);//success
+			CMD_REPLY(SOCKS_REPLY.SUCCEEDED,ipFamily===4?'0.0.0.0':"::",this.localPort);//success
 		});
 
 		relaySocket.on('message',(msg,info)=>{//message from remote or client
@@ -531,7 +531,6 @@ class UDPRelay extends Relay{
 				});
 				this.reply(info.address,info.port,msg,err=>{
 					if(err)this.emit('proxy_error',relaySocket,'to client',err);
-					// if(err)console.error('	[UDP proxy error]',err.message);
 				});
 			}
 		}).once('error',e=>{
@@ -545,16 +544,15 @@ class UDPRelay extends Relay{
 	/**
 	 *reply message from remote to client
 	 *
-	 * @param {string} address
+	 * @param {string} address message source
 	 * @param {number} port
-	 * @param {Buffer} msg
+	 * @param {Buffer} msg	message
 	 * @param {function} callback
 	 */
 	reply(address,port,msg,callback){
 		let head=replyHead5(address,port);
 		head[0]=0x00;
-		this.relaySocket.send(msg,this.finalClientPort,this.finalClientAddress,callback);
-		this.replyMsg(Buffer.concat([head,msg]),callback);
+		this.relaySocket.send(Buffer.concat([head,msg]),this.finalClientPort,this.finalClientAddress,callback);
 	}
 	/**
 	 *check if the message is from socks client
@@ -564,7 +562,7 @@ class UDPRelay extends Relay{
 	 */
 	isFromClient(info){
 		if(!this.finalClientPort){//update client's out going address and port by the first client message 
-			if(this.expectClientPort && info.address!==this.expectClientPort){//if client port defined but not from expectClientPort
+			if(this.expectClientPort && info.port!==this.expectClientPort){//if client port defined but not from expectClientPort
 				return false;
 			}
 			if(info.address!==this.socket.remoteAddress){//not from client, ignore it
