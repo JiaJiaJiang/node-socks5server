@@ -633,7 +633,15 @@ class UDPRelay extends Relay{
 			this.outStream(socket).pipe(relaySocket);
 			this.emit('connection',this.inStream(socket),relaySocket);
 		}).once('error',err=>{
-			CMD_REPLY(SOCKS_REPLY.SERVER_FAILURE);
+			let rep=SOCKS_REPLY.SERVER_FAILURE;
+			if(err.message.indexOf('ECONNREFUSED')>-1){
+				rep=SOCKS_REPLY.CONNECTION_REFUSED;
+			}else if(err.message.indexOf('EHOSTUNREACH')>-1){
+				rep=SOCKS_REPLY.HOST_UNREACHABLE;
+			}else if(err.message.indexOf('ENETUNREACH')>-1){
+				rep=SOCKS_REPLY.NETWORK_UNREACHABLE;
+			}
+			CMD_REPLY(rep);
 			this.emit('proxy_error',err,socket,relaySocket);
 		}).once('close',()=>{
 			this.close();
