@@ -110,8 +110,8 @@ options:
 	the same as net.Server options
 */
 class socksServer extends net.Server{
-	constructor(options,connectionListener){
-		super(options,connectionListener);
+	constructor(options){
+		super(options);
 		this.enabledVersion=new Set([SOCKS_VERSION5,SOCKS_VERSION4]);
 		this.enabledCmd=new Set([REQUEST_CMD.CONNECT,REQUEST_CMD.UDP_ASSOCIATE]);
 		this.socks5={
@@ -716,13 +716,13 @@ function _CMD_REPLY4() {//'this' is the socket
 
 
 
-function createSocksServer() {
-	return new socksServer();
+function createSocksServer(options) {
+	return new socksServer(options);
 }
 
 
 module.exports = {
-	createServer: createSocksServer,
+	createSocksServer,
 	socksServer,
 	replyHead5,
 	UDPRelay,

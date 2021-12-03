@@ -1,7 +1,7 @@
 
 var net = require('net'),
 	{
-		createServer,
+		createSocksServer,
 		UDPRelay,
 		TCPRelay,
 	} = require('./index.js');
@@ -21,7 +21,7 @@ const opts=commander.opts();
 // The server accepts SOCKS connections. This particular server acts as a proxy.
 var HOST=opts.host||'127.0.0.1',
 	PORT=opts.port||'1080',
-	server = createServer();
+	server = createSocksServer();
 
 console.log('server starting at ',HOST,':',PORT);
 
