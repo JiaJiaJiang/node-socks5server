@@ -81,7 +81,7 @@ function relayUDP(socket, address, port, CMD_REPLY){
 		fromClient;//is this packet from client
 
 		//modify
-		//  If the packet is not from client, modification on addreses and
+		//  If the packet was not from client, modification on addreses and
 		//  port will not take effect because the packet must be sent back
 		//  to client
 		packet.address;//target address
