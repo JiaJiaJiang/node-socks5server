@@ -76,15 +76,23 @@ function relayUDP(socket, address, port, CMD_REPLY){
 		console.log('  [UDP closed]',socket.remoteAddress);
 	});
 
-	//example for modify data
-	relay.on('clientMessage',packet=>{
+	//example for modify data sync
+	relay.on('message',(fromClient,packet)=>{
+		fromClient;//is this packet from client
+
+		//modify
+		//  If the packet is not from client, modification on addreses and
+		//  port will not take effect because the packet must be sent back
+		//  to client
 		packet.address;//target address
 		packet.port;//target port
 		packet.data;//data from client
 	});
-	relay.on('remoteMessage',packet=>{
-		packet.data;//data from remote
-	});
+
+	//example for modify data async
+	relay.packetHandler=async (fromClient,packet)=>{
+		//same with previous
+	};
 }
 
 //the socks server

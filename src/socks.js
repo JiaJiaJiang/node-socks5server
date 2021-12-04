@@ -469,6 +469,7 @@ class Relay extends events{
  * @extends {Relay}
  */
 class UDPRelay extends Relay{
+	packetHandler;
 	/**
 	 * Creates an instance of UDPRelay.
 	 * @param {net.Socket} socket the socks5 request socket
@@ -505,13 +506,13 @@ class UDPRelay extends Relay{
 			CMD_REPLY(SOCKS_REPLY.SUCCEEDED,ipFamily===4?'0.0.0.0':"::",this.localPort);//success
 		});
 
-		relaySocket.on('message',(msg,info)=>{//message from remote or client
+		relaySocket.on('message',async (msg,info)=>{//message from remote or client
 			/*
 				only handle datagrams from socket source and specified address
 			*/
 			if(this.isFromClient(info)){//from client to remote
 				let headLength;
-				if(!(headLength=UDPRelay.hasValidSocks5UDPHead(msg))){
+				if(!(headLength=UDPRelay.validateSocks5UDPHead(msg))){
 					return;
 				}
 				//unpack the socks5 udp request
@@ -520,7 +521,8 @@ class UDPRelay extends Relay{
 					port:Port.read(msg,3),
 					data:msg.slice(headLength)
 				};
-				this.emit('clientMessage',packet);
+				this.emit('message',true,packet);
+				if(this.packetHandler)await this.packetHandler(true,packet);
 				this.relaySocket.send(packet.data,packet.port,packet.address,err=>{
 					if(err)this.emit('proxy_error',relaySocket,'to remote',err);
 				});
@@ -531,7 +533,8 @@ class UDPRelay extends Relay{
 					data:msg,
 				};
 				if(!this.finalClientAddress)return;//ignore if client address unknown
-				this.emit('remoteMessage',packet);
+				this.emit('message',false,packet);
+				if(this.packetHandler)await this.packetHandler(false,packet);
 				this.reply(info.address,info.port,packet.data,err=>{
 					if(err)this.emit('proxy_error',relaySocket,'to client',err);
 				});
@@ -541,7 +544,7 @@ class UDPRelay extends Relay{
 				socket.destroy('relay error');
 		}).once('close',()=>{
 			this.close();
-		});;
+		});
 
 	}
 	/**
@@ -586,7 +589,7 @@ class UDPRelay extends Relay{
 	 * @param {Buffer} buf
 	 * @returns {boolean|number} return false if it's not a valid head,otherwise return the head size
 	 */
-	static hasValidSocks5UDPHead(buf){
+	static validateSocks5UDPHead(buf){
 		if(buf[0]!==0 || buf[1]!==0)return false;
 		let minLength=6;//data length without addr
 		if(buf[3]===0x01){minLength+=4;}
