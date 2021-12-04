@@ -78,15 +78,21 @@ function relayUDP(socket, address, port, CMD_REPLY){
 
 	//example for modify data sync
 	relay.on('message',(fromClient,packet)=>{
-		fromClient;//is this packet from client
+		fromClient;//is this packet from the client
 
-		//modify
-		//  If the packet was not from client, modification on addreses and
-		//  port will not take effect because the packet must be sent back
-		//  to client
+		// when fromClient is true
 		packet.address;//target address
 		packet.port;//target port
+		packet.data;//client sent data
+
+		// when fromClient is false
+		packet.address;//source address
+		packet.port;//source port
 		packet.data;//data
+
+		//If the packet was not from the client, modification on addreses and
+		//port will not take effect, because the packet must be sent back
+		//to the client
 	});
 
 	//example for modify data async
