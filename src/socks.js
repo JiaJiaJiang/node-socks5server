@@ -525,11 +525,14 @@ class UDPRelay extends Relay{
 					if(err)this.emit('proxy_error',relaySocket,'to remote',err);
 				});
 			}else{//from other hosts
-				if(!this.finalClientAddress)return;//ignore if client address unknown
-				this.emit('remoteMessage',{
+				let packet={
+					address:info.address,
+					port:info.port,
 					data:msg,
-				});
-				this.reply(info.address,info.port,msg,err=>{
+				};
+				if(!this.finalClientAddress)return;//ignore if client address unknown
+				this.emit('remoteMessage',packet);
+				this.reply(info.address,info.port,packet.msg,err=>{
 					if(err)this.emit('proxy_error',relaySocket,'to client',err);
 				});
 			}
