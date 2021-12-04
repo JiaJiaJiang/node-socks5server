@@ -86,7 +86,7 @@ function relayUDP(socket, address, port, CMD_REPLY){
 		//  to client
 		packet.address;//target address
 		packet.port;//target port
-		packet.data;//data from client
+		packet.data;//data
 	});
 
 	//example for modify data async
