@@ -54,12 +54,8 @@ function relayTCP(socket, address, port, CMD_REPLY){
 	});
 
 	//example for modify data
-	relay.inStream=(source)=>{
-		return source;//return another Readable stream to modify the stream
-	}
-	relay.outStream=(source)=>{
-		return source;//return another Readable stream to modify the stream
-	}
+	relay.outModifier=null;//give a readable stream here to modify outgoing data
+	relay.inModifier=null;//give a readable stream here to modify incoming data
 }
 
 /*

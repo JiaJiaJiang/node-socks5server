@@ -5,6 +5,7 @@ const net = require('net'),
 	dgram = require('dgram'),
 	events=require('events'),
 	stream=require('stream'),
+	pump = require('pump'),
 	ipAddress=require('ip-address');
 
 const SOCKS_VERSION5 = 5,
@@ -459,6 +460,9 @@ class Relay extends events{
 		this.socket.end();
 		this.closed=true;
 		this.emit('close');
+		setImmediate(()=>{
+			this.relaySocket=null;
+		});
 	}
 }
 
@@ -545,7 +549,6 @@ class UDPRelay extends Relay{
 		}).once('close',()=>{
 			this.close();
 		});
-
 	}
 	/**
 	 *reply message from remote to client
@@ -582,6 +585,10 @@ class UDPRelay extends Relay{
 		if(this.finalClientAddress!==info.address || this.finalClientPort!==info.port)return false;
 		return true;
 	}
+	close(){
+		super.close();
+		this.packetHandler=null;
+	}
 	/**
 	 *check socks5 UDP head
 	 *
@@ -612,6 +619,8 @@ class UDPRelay extends Relay{
  class TCPRelay extends Relay{
 	remoteAddress;
 	remotePort;
+	outModifier;//a readable stream for modifying outgoing stream
+	inModifier;//a readable stream for modifying incoming stream
 	/**
 	 * Creates an instance of TCPRelay.
 	 * @param {net.Socket} socket the socks5 request socket
@@ -631,13 +640,17 @@ class UDPRelay extends Relay{
 			host:remoteAddress,
 			localAddress:localAddress||undefined,
 			localPort:localPort||undefined
-		},CMD_REPLY);
+		});
 
 		relaySocket.on('connect',()=>{
 			CMD_REPLY(SOCKS_REPLY.SUCCEEDED,this.localAddress,this.localPort);
-			this.inStream(relaySocket).pipe(socket);
-			this.outStream(socket).pipe(relaySocket);
-			this.emit('connection',this.inStream(socket),relaySocket);
+			let outChain=[socket,relaySocket];
+			if(this.outModifier)outChain.splice(1,0,this.outModifier);
+			pump(outChain);
+			let inChain=[relaySocket,socket];
+			if(this.inModifier)inChain.splice(1,0,this.inModifier);
+			pump(inChain);
+			this.emit('connection',socket,relaySocket);
 		}).once('error',err=>{
 			let rep=SOCKS_REPLY.SERVER_FAILURE;
 			if(err.message.indexOf('ECONNREFUSED')>-1){
@@ -649,27 +662,17 @@ class UDPRelay extends Relay{
 			}
 			CMD_REPLY(rep);
 			this.emit('proxy_error',err,socket,relaySocket);
+			this.close();
 		}).once('close',()=>{
 			this.close();
 		});
 	}
-	/**
-	 *get incoming stream and return a stream, can be used to modify incoming stream
-	 *
-	 * @param {stream.Readable} source
-	 * @returns {stream.Readable}  
-	 */
-	inStream(source){
-		return source;
-	}
-	/**
-	 *get out going stream and return a stream, can be used to modify out going stream
-	 *
-	 * @param {stream.Readable} source
-	 * @returns {stream.Readable} 
-	 */
-	outStream(source){
-		return source;
+	close(){
+		super.close();
+		this.inModifier=null;
+		this.outModifier=null;
+		this.packetHandler=null;
+		this.socket=null;
 	}
 }
 
