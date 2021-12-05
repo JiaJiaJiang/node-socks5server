@@ -457,11 +457,19 @@ class Relay extends events{
 	}
 	close(){
 		if(this.closed)return;
-		this.socket.end();
+		if(this.socket.end){
+			this.socket.end();
+		}else{
+			this.socket.close();
+		}
 		this.closed=true;
 		this.emit('close');
 		setImmediate(()=>{
+			if(this.relaySocket){
+				this.relaySocket.removeAllListeners();
+			}
 			this.relaySocket=null;
+			this.socket=null;
 		});
 	}
 }
@@ -672,7 +680,6 @@ class UDPRelay extends Relay{
 		this.inModifier=null;
 		this.outModifier=null;
 		this.packetHandler=null;
-		this.socket=null;
 	}
 }
 
