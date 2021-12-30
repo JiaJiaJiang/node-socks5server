@@ -80,7 +80,9 @@ const	Address = {
 		} else if (buffer[offset] == ATYP.DNS) {
 			return buffer.toString('utf8', offset+2, offset+2+buffer[offset+1]);
 		} else if (buffer[offset] == ATYP.IP_V6) {
-			return [...buffer.slice(buffer[offset+1], buffer[offset+1]+16)].map(num=>num.toString(16)).join(':');
+			let h=[...buffer.slice(offset+1, offset+1+16)].map(num=>num.toString(16).padStart(2,'0'));//to hex address
+			//divide every 2 bytes into groups
+			return `${h[0]}${h[1]}:${h[2]}${h[3]}:${h[4]}${h[5]}:${h[6]}${h[7]}:${h[8]}${h[9]}:${h[10]}${h[11]}:${h[12]}${h[13]}:${h[14]}${h[15]}`;
 		}
 	},
 	//size of byteLength in buffer
