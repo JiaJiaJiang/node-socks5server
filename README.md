@@ -91,3 +91,5 @@ RFC:
 ### License
 
 (The MIT License)
+
+This repo was forked from https://github.com/gvangool/node-socks/

@@ -4,13 +4,11 @@ const net = require('net'),
 	DNS = require('dns'),
 	dgram = require('dgram'),
 	events=require('events'),
-	stream=require('stream'),
-	pump = require('pump'),
 	ipAddress=require('ip-address');
+const { pipeline } = require('stream');
 
 const SOCKS_VERSION5 = 5,
 	SOCKS_VERSION4 = 4;
-
 /*
  * Authentication methods
  ************************
@@ -448,22 +446,13 @@ class Relay extends events{
 	constructor(socket){
 		super();
 		this.socket=socket;
-		//when the tcp socket ends, the relay must stop
-		socket.on('close',()=>{
-			if(this.relaySocket?.close){
-				this.relaySocket.close();
-			}else if(this.relaySocket?.end){
-				this.relaySocket.end();
-			}
-		});
+		
 	}
 	close(){
 		if(this.closed)return;
-		if(this.socket.end){
-			this.socket.end();
-		}else{
-			this.socket.close();
-		}
+		this.socket&&destroySocket(this.socket);
+		this.relaySocket&&destroySocket(this.relaySocket);
+
 		this.closed=true;
 		this.emit('close');
 		setImmediate(()=>{
@@ -556,7 +545,9 @@ class UDPRelay extends Relay{
 		}).once('error',e=>{
 			if(!CMD_REPLY(SOCKS_REPLY.HOST_UNREACHABLE))
 				socket.destroy('relay error');
-		}).once('close',()=>{
+		});
+		//when the tcp socket ends, the relay must stop
+		socket.once('close',()=>{
 			this.close();
 		});
 	}
@@ -656,10 +647,18 @@ class UDPRelay extends Relay{
 			CMD_REPLY(SOCKS_REPLY.SUCCEEDED,this.localAddress,this.localPort);
 			let outChain=[socket,relaySocket];
 			if(this.outModifier)outChain.splice(1,0,this.outModifier);
-			pump(outChain);
+			pipeline(outChain,(err)=>{
+				if(err){
+					console.debug('(relay tcp out-going error)',err);
+				}
+			});
 			let inChain=[relaySocket,socket];
 			if(this.inModifier)inChain.splice(1,0,this.inModifier);
-			pump(inChain);
+			pipeline(inChain,(err)=>{
+				if(err){
+					console.debug('(relay tcp in-coming error)',err);
+				}
+			});
 			this.emit('connection',socket,relaySocket);
 		}).once('error',err=>{
 			let rep=SOCKS_REPLY.SERVER_FAILURE;
@@ -673,7 +672,9 @@ class UDPRelay extends Relay{
 			CMD_REPLY(rep);
 			this.emit('proxy_error',err,socket,relaySocket);
 			this.close();
-		}).once('close',()=>{
+		});
+
+		socket.once('close',()=>{
 			this.close();
 		});
 	}
@@ -740,7 +741,13 @@ function _CMD_REPLY4() {//'this' is the socket
 	this.CMD_REPLIED=true;
 }
 
-
+function destroySocket(socket){
+	if(socket.closed===false){
+		socket.close();
+	}else if(socket.destroyed===false){
+		socket.destroy();
+	}
+}
 
 function createSocksServer(options) {
 	return new socksServer(options);
