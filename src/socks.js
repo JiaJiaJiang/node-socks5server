@@ -649,14 +649,14 @@ class UDPRelay extends Relay{
 			if(this.outModifier)outChain.splice(1,0,this.outModifier);
 			pipeline(outChain,(err)=>{
 				if(err){
-					console.debug('(relay tcp out-going error)',err);
+					this.emit('socks_error',err);
 				}
 			});
 			let inChain=[relaySocket,socket];
 			if(this.inModifier)inChain.splice(1,0,this.inModifier);
 			pipeline(inChain,(err)=>{
 				if(err){
-					console.debug('(relay tcp in-coming error)',err);
+					this.emit('socks_error',err);
 				}
 			});
 			this.emit('connection',socket,relaySocket);
