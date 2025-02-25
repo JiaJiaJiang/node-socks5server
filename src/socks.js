@@ -131,7 +131,7 @@ class socksServer extends net.Server {
 				this.emit('client_error', socket, e);
 			}).once('data', chunk => {
 				this._handshake(socket, chunk);
-			}).ce('socks_error', e => {
+			}).once('socks_error', e => {
 				this.emit('socks_error', socket, e);
 			});
 		});
