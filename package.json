@@ -1,6 +1,6 @@
 {
 	"name": "socks5server",
-	"version": "4.5.2",
+	"version": "4.5.3",
 	"description": "A simple SOCKS 5/4/4a implementation and demo proxy",
 	"author": "luojia <luojia@luojia.me>",
 	"repository": {
