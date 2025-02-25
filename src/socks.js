@@ -67,7 +67,7 @@ const ATYP = {
 const _005B = Buffer.from([0x00, 0x5b]),//?
 	_0101 = Buffer.from([0x01, 0x01]),//auth failed
 	_0501 = Buffer.from([0x05, 0x01]),//general SOCKS server failure
-	_0507 = Buffer.from([0x05, 0x01]),//Command not supported
+	_0507 = Buffer.from([0x05, 0x07]),//Command not supported
 	_0100 = Buffer.from([0x01, 0x00]);//auth succeeded
 
 
@@ -127,11 +127,11 @@ class socksServer extends net.Server {
 		};
 		this.on('connection', socket => {
 			//socket._socksServer=this;
-			socket.on('error', e => {
+			socket.once('error', e => {
 				this.emit('client_error', socket, e);
 			}).once('data', chunk => {
 				this._handshake(socket, chunk);
-			}).on('socks_error', e => {
+			}).ce('socks_error', e => {
 				this.emit('socks_error', socket, e);
 			});
 		});
@@ -233,14 +233,14 @@ class socksServer extends net.Server {
 
 			uid = '';
 			for (it = 0; it < 1024; it++) {
-				uid += chunk[8 + it];
+				uid += String.fromCharCode(chunk[8 + it]);
 				if (chunk[8 + it] === 0x00)
 					break;
 			}
 			address = '';
 			if (chunk[8 + it] === 0x00) {
 				for (it++; it < 2048; it++) {
-					address += chunk[8 + it];
+					address += String.fromCharCode(chunk[8 + it]);
 					if (chunk[8 + it] === 0x00)
 						break;
 				}
@@ -248,9 +248,9 @@ class socksServer extends net.Server {
 			if (chunk[8 + it] === 0x00) {
 				// DNS lookup
 				DNS.lookup(address, (err, ip, family) => {
-					if (err) {
+					if (err || family !== 4) {
 						socket.end(_005B);
-						socket.emit('socks_error', err);
+						socket.emit('socks_error', err || new Error('only ipv4 allowed'));
 						return;
 					} else {
 						socket.socksAddress = ip;
@@ -312,21 +312,21 @@ class socksServer extends net.Server {
 			return;
 		}
 
-		let availableAuthMethods = [];
+		let clientAvailableAuthMethods = [];
 		// i starts on 2, since we've read chunk 0 & 1 already
 		for (let i = 2; i < method_count + 2; i++) {
 			if (this.socks5.authMethodsList.has(chunk[i])) {
-				availableAuthMethods.push(chunk[i]);
+				clientAvailableAuthMethods.push(chunk[i]);
 			}
 		}
 
 		let resp = Buffer.from([
 			SOCKS_VERSION5,//response version 5
-			availableAuthMethods[0]//select the first auth method
+			clientAvailableAuthMethods[0]//select the first auth method
 		]);
 		let authFunc = this.socks5.authFunc.get(resp[1]);
 
-		if (availableAuthMethods.length === 0 || !authFunc) {//no available auth method
+		if (clientAvailableAuthMethods.length === 0 || !authFunc) {//no available auth method
 			resp[1] = AUTHENTICATION.NONE;
 			socket.end(resp);
 			socket.emit('socks_error', 'unsupported authentication method');
@@ -393,13 +393,13 @@ class socksServer extends net.Server {
 	 *handle socks5 command request
 	 *@private
 	 * @param {net.Socket} socket the socks5 request socket
-	 * @param {Buffer} chunk
+	 * @param {Buffer} chunk the chunk is the cmd request head
 	 */
-	_socks5HandleRequest(socket, chunk) {//the chunk is the cmd request head
+	_socks5HandleRequest(socket, chunk) {
 		let cmd = chunk[1],//command
 			address,
 			port;
-			// offset = 3;
+		// offset = 3;
 		if (!this.enabledCmd.has(cmd)) {
 			_CMD_REPLY5.call(socket, SOCKS_REPLY.COMMAND_NOT_SUPPORTED);//Command not supported
 			return;
@@ -447,15 +447,12 @@ class Relay extends events {
 	}
 	close() {
 		if (this.closed) return;
-		this.socket && destroySocket(this.socket);
-		this.relaySocket && destroySocket(this.relaySocket);
 
 		this.closed = true;
 		this.emit('close');
 		setImmediate(() => {
-			if (this.relaySocket) {
-				this.relaySocket.removeAllListeners();
-			}
+			this.socket && destroySocket(this.socket);
+			this.relaySocket && destroySocket(this.relaySocket);
 			this.relaySocket = null;
 			this.socket = null;
 		});
@@ -480,7 +477,7 @@ class UDPRelay extends Relay {
 	constructor(socket, address, port, CMD_REPLY) {
 		super(socket);
 
-		this.relaySocket;//the UDP socket used for relay udp request
+		this.relaySocket = null;//the UDP socket used for relay udp request
 
 		//the client want to send UDP datagrams from this address to this relay
 		//if not clarified, the first incoming address will be the client's address
@@ -488,8 +485,8 @@ class UDPRelay extends Relay {
 		this.expectClientPort = port;
 
 		//the client's address and port which finally determined
-		this.finalClientAddress;
-		this.finalClientPort;
+		this.finalClientAddress = null;
+		this.finalClientPort = null;
 
 
 		let ipFamily;
@@ -510,16 +507,15 @@ class UDPRelay extends Relay {
 			/*
 				only handle datagrams from socket source and specified address
 			*/
-			if (this.isFromClient(info)) {//from client to remote
-				let headLength;
-				if (!(headLength = UDPRelay.validateSocks5UDPHead(msg))) {
-					return;
-				}
+			if (this._isFromClient(info)) {//from client to remote
+				let headLength = UDPRelay.validateSocks5UDPHead(msg);
+				if (!headLength) return;
+
 				//unpack the socks5 udp request
 				let packet = {
 					address: Address.read(msg, 3),
 					port: Port.read(msg, 3),
-					data: msg.slice(headLength)
+					data: msg.subarray(headLength),
 				};
 				this.emit('message', true, packet);
 				if (this.packetHandler) await this.packetHandler(true, packet);
@@ -527,12 +523,12 @@ class UDPRelay extends Relay {
 					if (err) this.emit('proxy_error', relaySocket, 'to remote', err);
 				});
 			} else {//from other hosts
+				if (!this.finalClientAddress) return;//ignore if client address unknown
 				let packet = {
 					address: info.address,
 					port: info.port,
 					data: msg,
 				};
-				if (!this.finalClientAddress) return;//ignore if client address unknown
 				this.emit('message', false, packet);
 				if (this.packetHandler) await this.packetHandler(false, packet);
 				this.reply(info.address, info.port, packet.data, err => {
@@ -567,7 +563,7 @@ class UDPRelay extends Relay {
 	 * @param {dgram.RemoteInfo} info 
 	 * @returns {boolean}
 	 */
-	isFromClient(info) {
+	_isFromClient(info) {
 		if (!this.finalClientPort) {//update client's out going address and port by the first client message 
 			if (this.expectClientPort && info.port !== this.expectClientPort) {//if client port defined but not from expectClientPort
 				return false;
@@ -742,6 +738,7 @@ function destroySocket(socket) {
 	if (socket.destroyed === false) {
 		socket.destroy();
 	}
+	socket.removeAllListeners();
 }
 
 function createSocksServer(options) {

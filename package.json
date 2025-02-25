@@ -19,6 +19,6 @@
 	"main": "index.js",
 	"dependencies": {
 		"commander": "^8.3.0",
-		"ip-address": "^8.1.0"
+		"ip-address": "^10.0.1"
 	}
 }

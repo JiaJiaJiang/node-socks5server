@@ -55,7 +55,9 @@ The `proxy.js` is a simple demo of the server.
 ### Implementations
 
 ✅ : OK
+
 ❌ : not implemented
+
 ❓ : I'm not sure is it completely finished
 
 #### Socks4
